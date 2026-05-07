@@ -1,0 +1,905 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>منظومة المدرس الذكية</title>
+
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <style>
+    body {
+      margin: 0;
+      background: #0d0d1a;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+
+import { useState, useEffect } from "react";
+
+// ==================== DATA STORE ====================
+const initialStudents = {
+  1: [
+    { id: 1, name: "أحمد محمد علي", parentName: "محمد علي", parentPhone: "01012345678" },
+    { id: 2, name: "سارة أحمد حسن", parentName: "أحمد حسن", parentPhone: "01098765432" },
+    { id: 3, name: "محمود إبراهيم", parentName: "إبراهيم سعد", parentPhone: "01123456789" },
+    { id: 4, name: "نور الدين طه", parentName: "طه نور", parentPhone: "01234567890" },
+    { id: 5, name: "مريم خالد", parentName: "خالد مصطفى", parentPhone: "01567891234" },
+  ],
+  2: [
+    { id: 6, name: "عمر عبدالله", parentName: "عبدالله عمر", parentPhone: "01011112222" },
+    { id: 7, name: "لمياء حسين", parentName: "حسين لمياء", parentPhone: "01033334444" },
+    { id: 8, name: "كريم يوسف", parentName: "يوسف كريم", parentPhone: "01055556666" },
+  ],
+  3: [
+    { id: 9, name: "دينا سامي", parentName: "سامي دينا", parentPhone: "01077778888" },
+    { id: 10, name: "باسم رامي", parentName: "رامي باسم", parentPhone: "01099990000" },
+    { id: 11, name: "هالة فؤاد", parentName: "فؤاد هالة", parentPhone: "01022221111" },
+  ],
+};
+
+const gradeNames = { 1: "الصف الأول الثانوي", 2: "الصف الثاني الثانوي", 3: "الصف الثالث الثانوي" };
+
+const monthNames = ["يناير","فبراير","مارس","أبريل","مايو","يونيو","يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر"];
+
+const dayNames = ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"];
+
+function getNow() {
+  const d = new Date();
+  return `${dayNames[d.getDay()]} ${d.getDate()}/${d.getMonth()+1}/${d.getFullYear()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
+function getMonthKey() {
+  const d = new Date();
+  return `${d.getFullYear()}-${d.getMonth()+1}`;
+}
+
+// ==================== ICONS ====================
+const Icon = ({ name, size = 20 }) => {
+  const icons = {
+    school: "🏫", grade1: "1️⃣", grade2: "2️⃣", grade3: "3️⃣",
+    attendance: "📋", fees: "💰", files: "📁", messages: "💬",
+    parents: "👨‍👩‍👧", grades: "📊", back: "←", add: "+",
+    delete: "🗑", check: "✅", absent: "❌", send: "📤",
+    stats: "📈", upload: "⬆", whatsapp: "📱", sms: "✉",
+    star: "⭐", trophy: "🏆", warning: "⚠", info: "ℹ",
+    close: "✕", edit: "✏", save: "💾", notify: "🔔",
+    calendar: "📅", phone: "📞", user: "👤",
+  };
+  return <span style={{ fontSize: size }}>{icons[name] || "●"}</span>;
+};
+
+// ==================== NOTIFICATION ====================
+function NotificationToast({ msg, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3500); return () => clearTimeout(t); }, []);
+  return (
+    <div style={{
+      position:"fixed", top:20, right:20, background:"#1a1a2e", color:"#e8d5b7",
+      border:"1px solid #c9a84c", borderRadius:12, padding:"14px 20px",
+      boxShadow:"0 8px 32px rgba(0,0,0,0.4)", zIndex:9999, maxWidth:320,
+      animation:"slideIn 0.3s ease", direction:"rtl", fontSize:14, fontFamily:"Tajawal, sans-serif"
+    }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", gap:10 }}>
+        <span>🔔 {msg}</span>
+        <button onClick={onClose} style={{ background:"none", border:"none", color:"#c9a84c", cursor:"pointer", fontSize:18 }}>✕</button>
+      </div>
+    </div>
+  );
+}
+
+// ==================== ATTENDANCE MODULE ====================
+function AttendanceModule({ students, grade, onBack }) {
+  const [list, setList] = useState(students);
+  const [absences, setAbsences] = useState({});
+  const [newName, setNewName] = useState("");
+  const [sessionDate, setSessionDate] = useState(getNow());
+  const [notify, setNotify] = useState(null);
+
+  const toggle = (id) => {
+    const updated = { ...absences };
+    if (!updated[id]) updated[id] = [];
+    const today = sessionDate;
+    if (updated[id].includes(today)) {
+      updated[id] = updated[id].filter(d => d !== today);
+    } else {
+      updated[id].push(today);
+      const st = list.find(s => s.id === id);
+      setNotify(`تم إرسال إشعار غياب لولي أمر ${st?.name} على الواتساب والـ SMS`);
+    }
+    setAbsences(updated);
+  };
+
+  const addStudent = () => {
+    if (!newName.trim()) return;
+    const ns = { id: Date.now(), name: newName.trim(), parentName: "—", parentPhone: "—" };
+    setList([...list, ns]);
+    setNewName("");
+  };
+
+  const remove = (id) => setList(list.filter(s => s.id !== id));
+  const isAbsent = (id) => absences[id]?.includes(sessionDate);
+
+  return (
+    <div style={moduleWrap}>
+      {notify && <NotificationToast msg={notify} onClose={() => setNotify(null)} />}
+      <div style={moduleHeader}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <h2 style={moduleTitle}>📋 تسجيل الغياب — {gradeNames[grade]}</h2>
+      </div>
+
+      <div style={{ display:"flex", gap:12, marginBottom:20, alignItems:"center", flexWrap:"wrap" }}>
+        <div style={infoCard}>
+          <Icon name="calendar" size={16} /> الجلسة: <strong>{sessionDate}</strong>
+        </div>
+        <div style={infoCard}>
+          غائبون: <strong style={{ color:"#e74c3c" }}>{Object.values(absences).filter(a => a.includes(sessionDate)).length}</strong> / {list.length}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:10, marginBottom:20 }}>
+        <input value={newName} onChange={e => setNewName(e.target.value)}
+          placeholder="اسم الطالب الجديد..." style={inputStyle} onKeyDown={e => e.key==="Enter" && addStudent()} />
+        <button onClick={addStudent} style={addBtn}>+ إضافة</button>
+      </div>
+
+      <div style={tableWrap}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={th}>#</th>
+              <th style={th}>اسم الطالب</th>
+              <th style={th}>الغياب اليوم</th>
+              <th style={th}>إجمالي الغياب</th>
+              <th style={th}>حذف</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map((s, i) => (
+              <tr key={s.id} style={{ background: isAbsent(s.id) ? "rgba(231,76,60,0.12)" : "transparent" }}>
+                <td style={td}>{i + 1}</td>
+                <td style={{ ...td, fontWeight: 600 }}>{s.name}</td>
+                <td style={td}>
+                  <button onClick={() => toggle(s.id)} style={{
+                    ...toggleBtn,
+                    background: isAbsent(s.id) ? "#e74c3c" : "#27ae60",
+                    transform: isAbsent(s.id) ? "scale(1.05)" : "scale(1)"
+                  }}>
+                    {isAbsent(s.id) ? "❌ غائب" : "✅ حاضر"}
+                  </button>
+                </td>
+                <td style={{ ...td, color: "#c9a84c" }}>
+                  {absences[s.id]?.length || 0} حصة
+                </td>
+                <td style={td}>
+                  <button onClick={() => remove(s.id)} style={deleteBtn}>🗑</button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {Object.values(absences).some(a => a.length > 0) && (
+        <div style={{ marginTop:24, padding:16, background:"rgba(201,168,76,0.1)", border:"1px solid #c9a84c", borderRadius:10 }}>
+          <h3 style={{ color:"#c9a84c", margin:"0 0 10px", fontSize:14 }}>📊 سجل الغياب الكامل</h3>
+          {list.filter(s => absences[s.id]?.length).map(s => (
+            <div key={s.id} style={{ marginBottom:6, fontSize:13, color:"#ddd" }}>
+              <strong>{s.name}</strong>: غاب {absences[s.id].length} مرة
+              <span style={{ color:"#e74c3c", fontSize:11, marginRight:8 }}>({absences[s.id].join(" | ")})</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ==================== FEES MODULE ====================
+function FeesModule({ students, grade, onBack }) {
+  const [fees, setFees] = useState({});
+  const [notify, setNotify] = useState(null);
+  const months = monthNames;
+
+  const toggleMonth = (id, month) => {
+    const updated = { ...fees };
+    if (!updated[id]) updated[id] = {};
+    if (updated[id][month]) {
+      delete updated[id][month];
+    } else {
+      updated[id][month] = getNow();
+      const st = students.find(s => s.id === id);
+      setNotify(`تم إشعار ولي أمر ${st?.name} بتأكيد دفع شهر ${month}`);
+    }
+    setFees(updated);
+  };
+
+  const currentMonth = monthNames[new Date().getMonth()];
+  const unpaid = students.filter(s => !fees[s.id]?.[currentMonth]);
+
+  return (
+    <div style={moduleWrap}>
+      {notify && <NotificationToast msg={notify} onClose={() => setNotify(null)} />}
+      <div style={moduleHeader}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <h2 style={moduleTitle}>💰 المصاريف — {gradeNames[grade]}</h2>
+      </div>
+
+      <div style={{ display:"flex", gap:12, marginBottom:20, flexWrap:"wrap" }}>
+        <div style={infoCard}>لم يدفعوا هذا الشهر: <strong style={{ color:"#e74c3c" }}>{unpaid.length}</strong></div>
+        <div style={infoCard}>دفعوا: <strong style={{ color:"#27ae60" }}>{students.length - unpaid.length}</strong></div>
+      </div>
+
+      <div style={{ overflowX:"auto" }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={th}>الطالب</th>
+              {months.slice(0,6).map(m => <th key={m} style={{ ...th, fontSize:11 }}>{m}</th>)}
+              {months.slice(6).map(m => <th key={m} style={{ ...th, fontSize:11 }}>{m}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {students.map(s => (
+              <tr key={s.id}>
+                <td style={{ ...td, fontWeight:600, whiteSpace:"nowrap" }}>{s.name}</td>
+                {months.map(m => (
+                  <td key={m} style={td}>
+                    <button onClick={() => toggleMonth(s.id, m)} title={fees[s.id]?.[m] || ""} style={{
+                      width:36, height:36, borderRadius:8, border:"none", cursor:"pointer", fontSize:16,
+                      background: fees[s.id]?.[m] ? "rgba(39,174,96,0.2)" : "rgba(255,255,255,0.05)",
+                      transition:"all 0.2s"
+                    }}>
+                      {fees[s.id]?.[m] ? "✅" : "⬜"}
+                    </button>
+                    {fees[s.id]?.[m] && (
+                      <div style={{ fontSize:9, color:"#aaa", marginTop:2, textAlign:"center" }}>
+                        {fees[s.id][m].split(" ")[0]}
+                      </div>
+                    )}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ==================== FILES MODULE ====================
+function FilesModule({ grade, onBack }) {
+  const [files, setFiles] = useState([
+    { id: 1, name: "شرح الباب الأول - المشتقات.pdf", date: "الأحد 28/4/2024", size: "2.3 MB", sent: true },
+    { id: 2, name: "تمارين الفصل الثاني.pdf", date: "الثلاثاء 30/4/2024", size: "1.1 MB", sent: false },
+  ]);
+  const [notify, setNotify] = useState(null);
+
+  const upload = () => {
+    const name = prompt("اسم الملف (للمحاكاة):");
+    if (!name) return;
+    setFiles([...files, { id: Date.now(), name, date: getNow(), size: "1.5 MB", sent: false }]);
+  };
+
+  const sendToStudents = (id) => {
+    setFiles(files.map(f => f.id === id ? { ...f, sent: true } : f));
+    setNotify("تم إرسال الملف لجميع طلاب المجموعة بنجاح! 📤");
+  };
+
+  const remove = (id) => setFiles(files.filter(f => f.id !== id));
+
+  return (
+    <div style={moduleWrap}>
+      {notify && <NotificationToast msg={notify} onClose={() => setNotify(null)} />}
+      <div style={moduleHeader}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <h2 style={moduleTitle}>📁 ملفات الحصص — {gradeNames[grade]}</h2>
+      </div>
+
+      <button onClick={upload} style={{ ...addBtn, marginBottom:20, padding:"12px 24px" }}>
+        ⬆ رفع ملف جديد
+      </button>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        {files.map(f => (
+          <div key={f.id} style={{
+            display:"flex", alignItems:"center", justifyContent:"space-between",
+            background:"rgba(255,255,255,0.04)", border:"1px solid rgba(201,168,76,0.2)",
+            borderRadius:10, padding:"14px 18px", flexWrap:"wrap", gap:10
+          }}>
+            <div>
+              <div style={{ fontWeight:600, color:"#e8d5b7" }}>📄 {f.name}</div>
+              <div style={{ fontSize:12, color:"#999", marginTop:4 }}>{f.date} | {f.size}</div>
+            </div>
+            <div style={{ display:"flex", gap:10 }}>
+              {!f.sent ? (
+                <button onClick={() => sendToStudents(f.id)} style={addBtn}>📤 إرسال للطلاب</button>
+              ) : (
+                <span style={{ color:"#27ae60", fontSize:13, fontWeight:600 }}>✅ تم الإرسال</span>
+              )}
+              <button onClick={() => remove(f.id)} style={deleteBtn}>🗑</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== MESSAGES MODULE ====================
+function MessagesModule({ students, grade, onBack }) {
+  const [msg, setMsg] = useState("");
+  const [sent, setSent] = useState([]);
+  const [notify, setNotify] = useState(null);
+
+  const send = () => {
+    if (!msg.trim()) return;
+    setSent([{ id: Date.now(), text: msg, date: getNow(), count: students.length }, ...sent]);
+    setNotify(`تم إرسال الرسالة لـ ${students.length} طلاب في ${gradeNames[grade]}`);
+    setMsg("");
+  };
+
+  const presets = [
+    "مفيش درس النهارده 🚫",
+    "الدرس هيتأخر ربع ساعة ⏰",
+    "فيه امتحان الأسبوع الجاي 📝",
+    "مطلوب دفع المصاريف قبل نهاية الشهر 💰",
+    "البراجراف اللي شرحناه النهارده في الكتاب صفحة 45 📖",
+  ];
+
+  return (
+    <div style={moduleWrap}>
+      {notify && <NotificationToast msg={notify} onClose={() => setNotify(null)} />}
+      <div style={moduleHeader}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <h2 style={moduleTitle}>💬 رسائل المجموعة — {gradeNames[grade]}</h2>
+      </div>
+
+      <div style={{ marginBottom:16 }}>
+        <div style={{ fontSize:13, color:"#c9a84c", marginBottom:8 }}>رسائل جاهزة:</div>
+        <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
+          {presets.map((p, i) => (
+            <button key={i} onClick={() => setMsg(p)} style={{
+              background:"rgba(201,168,76,0.1)", border:"1px solid rgba(201,168,76,0.3)",
+              color:"#e8d5b7", borderRadius:20, padding:"6px 14px", cursor:"pointer", fontSize:12
+            }}>{p}</button>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ display:"flex", gap:10, marginBottom:24 }}>
+        <textarea value={msg} onChange={e => setMsg(e.target.value)}
+          placeholder="اكتب رسالتك لكل الطلاب..."
+          style={{ ...inputStyle, height:80, resize:"vertical", flex:1 }} />
+        <button onClick={send} style={{ ...addBtn, padding:"12px 20px", alignSelf:"flex-end" }}>
+          📤 إرسال
+        </button>
+      </div>
+
+      <div style={{ display:"flex", flexDirection:"column", gap:10 }}>
+        {sent.map(s => (
+          <div key={s.id} style={{
+            background:"rgba(201,168,76,0.08)", border:"1px solid rgba(201,168,76,0.2)",
+            borderRadius:10, padding:14
+          }}>
+            <div style={{ color:"#e8d5b7", fontWeight:600, marginBottom:6 }}>"{s.text}"</div>
+            <div style={{ fontSize:12, color:"#999" }}>
+              📅 {s.date} | ✅ تم الإرسال لـ {s.count} طلاب
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== PARENTS MODULE ====================
+function ParentsModule({ students, grade, onBack }) {
+  const [list, setList] = useState(students.map(s => ({ ...s })));
+  const [editing, setEditing] = useState(null);
+  const [notify, setNotify] = useState(null);
+
+  const saveEdit = (id, field, val) => {
+    setList(list.map(s => s.id === id ? { ...s, [field]: val } : s));
+    setEditing(null);
+  };
+
+  return (
+    <div style={moduleWrap}>
+      {notify && <NotificationToast msg={notify} onClose={() => setNotify(null)} />}
+      <div style={moduleHeader}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <h2 style={moduleTitle}>👨‍👩‍👧 أولياء الأمور — {gradeNames[grade]}</h2>
+      </div>
+
+      <div style={tableWrap}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={th}>الطالب</th>
+              <th style={th}>اسم ولي الأمر</th>
+              <th style={th}>رقم الهاتف</th>
+              <th style={th}>تواصل</th>
+            </tr>
+          </thead>
+          <tbody>
+            {list.map(s => (
+              <tr key={s.id}>
+                <td style={{ ...td, fontWeight:600 }}>{s.name}</td>
+                <td style={td}>
+                  {editing === `${s.id}-parent` ? (
+                    <input defaultValue={s.parentName} autoFocus
+                      onBlur={e => saveEdit(s.id, "parentName", e.target.value)}
+                      style={{ ...inputStyle, padding:"4px 8px", fontSize:13 }} />
+                  ) : (
+                    <span onClick={() => setEditing(`${s.id}-parent`)} style={{ cursor:"pointer" }}>
+                      {s.parentName} ✏
+                    </span>
+                  )}
+                </td>
+                <td style={td}>
+                  {editing === `${s.id}-phone` ? (
+                    <input defaultValue={s.parentPhone} autoFocus
+                      onBlur={e => saveEdit(s.id, "parentPhone", e.target.value)}
+                      style={{ ...inputStyle, padding:"4px 8px", fontSize:13 }} />
+                  ) : (
+                    <span onClick={() => setEditing(`${s.id}-phone`)} style={{ cursor:"pointer" }}>
+                      {s.parentPhone} ✏
+                    </span>
+                  )}
+                </td>
+                <td style={td}>
+                  <div style={{ display:"flex", gap:6 }}>
+                    <a href={`https://wa.me/${s.parentPhone}`} target="_blank" rel="noreferrer"
+                      style={{ ...addBtn, padding:"6px 12px", fontSize:12, textDecoration:"none" }}>
+                      📱 واتساب
+                    </a>
+                    <a href={`tel:${s.parentPhone}`}
+                      style={{ ...addBtn, padding:"6px 12px", fontSize:12, background:"rgba(52,152,219,0.2)", border:"1px solid rgba(52,152,219,0.5)", textDecoration:"none" }}>
+                      📞 اتصال
+                    </a>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ==================== GRADES MODULE ====================
+function GradesModule({ students, grade, onBack }) {
+  const [grades, setGrades] = useState({});
+  const [notify, setNotify] = useState(null);
+  const exams = ["امتحان 1", "امتحان 2", "امتحان 3", "أعمال سنة"];
+  const maxMarks = { "امتحان 1": 25, "امتحان 2": 25, "امتحان 3": 30, "أعمال سنة": 20 };
+
+  const setMark = (sid, exam, val) => {
+    const max = maxMarks[exam];
+    const v = Math.min(max, Math.max(0, Number(val)));
+    setGrades(g => ({ ...g, [sid]: { ...(g[sid] || {}), [exam]: v } }));
+  };
+
+  const total = (sid) => exams.reduce((s, e) => s + (grades[sid]?.[e] || 0), 0);
+  const maxTotal = Object.values(maxMarks).reduce((a, b) => a + b, 0);
+
+  const getRating = (t) => {
+    const pct = (t / maxTotal) * 100;
+    if (pct >= 90) return { label: "ممتاز", color: "#27ae60", emoji: "🏆" };
+    if (pct >= 75) return { label: "جيد جداً", color: "#3498db", emoji: "⭐" };
+    if (pct >= 65) return { label: "جيد", color: "#9b59b6", emoji: "✅" };
+    if (pct >= 50) return { label: "مقبول", color: "#f39c12", emoji: "📝" };
+    return { label: "ضعيف", color: "#e74c3c", emoji: "⚠" };
+  };
+
+  const ranked = [...students].sort((a, b) => total(b.id) - total(a.id));
+
+  const sendGrade = (s) => {
+    const t = total(s.id);
+    const r = getRating(t);
+    setNotify(`تم إرسال درجة ${s.name} (${t}/${maxTotal} - ${r.label}) لولي الأمر`);
+  };
+
+  return (
+    <div style={moduleWrap}>
+      {notify && <NotificationToast msg={notify} onClose={() => setNotify(null)} />}
+      <div style={moduleHeader}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <h2 style={moduleTitle}>📊 الدرجات — {gradeNames[grade]}</h2>
+      </div>
+
+      <div style={{ overflowX:"auto" }}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={th}>الترتيب</th>
+              <th style={th}>الطالب</th>
+              {exams.map(e => <th key={e} style={th}>{e}<br/><span style={{ fontSize:10, color:"#aaa" }}>/{maxMarks[e]}</span></th>)}
+              <th style={th}>الإجمالي</th>
+              <th style={th}>التقدير</th>
+              <th style={th}>إرسال</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ranked.map((s, i) => {
+              const t = total(s.id);
+              const r = getRating(t);
+              return (
+                <tr key={s.id} style={{ background: i === 0 ? "rgba(201,168,76,0.08)" : "transparent" }}>
+                  <td style={{ ...td, fontWeight:"bold", color: i === 0 ? "#c9a84c" : "#ddd" }}>
+                    {i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : i+1}
+                  </td>
+                  <td style={{ ...td, fontWeight:600 }}>{s.name}</td>
+                  {exams.map(e => (
+                    <td key={e} style={td}>
+                      <input type="number" min="0" max={maxMarks[e]}
+                        value={grades[s.id]?.[e] || ""}
+                        onChange={ev => setMark(s.id, e, ev.target.value)}
+                        style={{ ...inputStyle, width:60, textAlign:"center", padding:"4px" }} />
+                    </td>
+                  ))}
+                  <td style={{ ...td, fontWeight:"bold", color: r.color }}>
+                    {t}/{maxTotal}
+                  </td>
+                  <td style={{ ...td, color: r.color }}>{r.emoji} {r.label}</td>
+                  <td style={td}>
+                    <button onClick={() => sendGrade(s)} style={{ ...addBtn, padding:"6px 10px", fontSize:11 }}>
+                      📤
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ==================== STATS MODULE ====================
+function StatsModule({ students, grade, onBack }) {
+  const month = monthNames[new Date().getMonth()];
+
+  const mockData = students.map((s, i) => ({
+    ...s,
+    absences: Math.floor(Math.random() * 5),
+    paid: i % 3 !== 0,
+    gradeTotal: Math.floor(Math.random() * 40) + 60,
+    examDone: i % 4 !== 0,
+  }));
+
+  const getRating = (t) => {
+    if (t >= 90) return { label: "ممتاز", color: "#27ae60" };
+    if (t >= 75) return { label: "جيد جداً", color: "#3498db" };
+    if (t >= 65) return { label: "جيد", color: "#9b59b6" };
+    if (t >= 50) return { label: "مقبول", color: "#f39c12" };
+    return { label: "ضعيف", color: "#e74c3c" };
+  };
+
+  const mostAbsent = [...mockData].sort((a, b) => b.absences - a.absences)[0];
+  const unpaid = mockData.filter(s => !s.paid);
+  const noExam = mockData.filter(s => !s.examDone);
+  const weakStudents = mockData.filter(s => s.gradeTotal < 65);
+
+  return (
+    <div style={moduleWrap}>
+      <div style={moduleHeader}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <h2 style={moduleTitle}>📈 إحصائيات شهر {month} — {gradeNames[grade]}</h2>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit, minmax(220px, 1fr))", gap:16, marginBottom:24 }}>
+        <StatCard emoji="❌" label="أكثر طالب غياباً" value={mostAbsent?.name} sub={`${mostAbsent?.absences} حصص`} color="#e74c3c" />
+        <StatCard emoji="💰" label="لم يدفعوا" value={`${unpaid.length} طلاب`} sub={unpaid.map(s => s.name).join(", ")} color="#f39c12" />
+        <StatCard emoji="📝" label="لم يمتحنوا" value={`${noExam.length} طلاب`} sub={noExam.map(s => s.name).join(", ")} color="#9b59b6" />
+        <StatCard emoji="⚠" label="درجات ضعيفة" value={`${weakStudents.length} طلاب`} sub={weakStudents.map(s => s.name).join(", ")} color="#e74c3c" />
+      </div>
+
+      <h3 style={{ color:"#c9a84c", marginBottom:12 }}>📊 تفصيلي الطلاب</h3>
+      <div style={tableWrap}>
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={th}>الطالب</th>
+              <th style={th}>الغياب</th>
+              <th style={th}>المصاريف</th>
+              <th style={th}>الامتحان</th>
+              <th style={th}>الدرجة</th>
+              <th style={th}>التقدير الشهري</th>
+            </tr>
+          </thead>
+          <tbody>
+            {mockData.map(s => {
+              const r = getRating(s.gradeTotal);
+              return (
+                <tr key={s.id}>
+                  <td style={{ ...td, fontWeight:600 }}>{s.name}</td>
+                  <td style={{ ...td, color: s.absences > 3 ? "#e74c3c" : "#ddd" }}>
+                    {s.absences} حصص {s.absences > 3 ? "⚠" : ""}
+                  </td>
+                  <td style={{ ...td, color: s.paid ? "#27ae60" : "#e74c3c" }}>
+                    {s.paid ? "✅ دفع" : "❌ لم يدفع"}
+                  </td>
+                  <td style={{ ...td, color: s.examDone ? "#27ae60" : "#e74c3c" }}>
+                    {s.examDone ? "✅ امتحن" : "❌ لم يمتحن"}
+                  </td>
+                  <td style={{ ...td, fontWeight:"bold", color: r.color }}>
+                    {s.gradeTotal}/100
+                  </td>
+                  <td style={{ ...td, color: r.color, fontWeight:600 }}>
+                    {r.label}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function StatCard({ emoji, label, value, sub, color }) {
+  return (
+    <div style={{
+      background:`rgba(${color === "#e74c3c" ? "231,76,60" : color === "#f39c12" ? "243,156,18" : color === "#9b59b6" ? "155,89,182" : "39,174,96"},0.1)`,
+      border:`1px solid ${color}44`,
+      borderRadius:12, padding:16
+    }}>
+      <div style={{ fontSize:28 }}>{emoji}</div>
+      <div style={{ color:"#aaa", fontSize:12, marginTop:4 }}>{label}</div>
+      <div style={{ color, fontWeight:"bold", fontSize:18, marginTop:4 }}>{value}</div>
+      {sub && <div style={{ color:"#888", fontSize:11, marginTop:4 }}>{sub}</div>}
+    </div>
+  );
+}
+
+// ==================== GRADE DASHBOARD ====================
+function GradeDashboard({ grade, students, onBack }) {
+  const [activeModule, setActiveModule] = useState(null);
+
+  const modules = [
+    { id:"attendance", icon:"📋", label:"تسجيل الغياب", color:"#e74c3c", desc:"حضور وغياب الطلاب" },
+    { id:"fees", icon:"💰", label:"المصاريف", color:"#f39c12", desc:"متابعة الدفع الشهري" },
+    { id:"files", icon:"📁", label:"ملفات الحصص", color:"#3498db", desc:"رفع وإرسال المحتوى" },
+    { id:"messages", icon:"💬", label:"رسائل المجموعة", color:"#9b59b6", desc:"إشعارات للطلاب" },
+    { id:"parents", icon:"👨‍👩‍👧", label:"أولياء الأمور", color:"#1abc9c", desc:"أرقام وأسماء" },
+    { id:"grades", icon:"📊", label:"الدرجات", color:"#27ae60", desc:"درجات الامتحانات" },
+    { id:"stats", icon:"📈", label:"إحصائيات الشهر", color:"#c9a84c", desc:"تقرير شامل" },
+  ];
+
+  if (activeModule === "attendance") return <AttendanceModule students={students} grade={grade} onBack={() => setActiveModule(null)} />;
+  if (activeModule === "fees") return <FeesModule students={students} grade={grade} onBack={() => setActiveModule(null)} />;
+  if (activeModule === "files") return <FilesModule grade={grade} onBack={() => setActiveModule(null)} />;
+  if (activeModule === "messages") return <MessagesModule students={students} grade={grade} onBack={() => setActiveModule(null)} />;
+  if (activeModule === "parents") return <ParentsModule students={students} grade={grade} onBack={() => setActiveModule(null)} />;
+  if (activeModule === "grades") return <GradesModule students={students} grade={grade} onBack={() => setActiveModule(null)} />;
+  if (activeModule === "stats") return <StatsModule students={students} grade={grade} onBack={() => setActiveModule(null)} />;
+
+  return (
+    <div style={{ padding:24, maxWidth:800, margin:"0 auto" }}>
+      <div style={{ display:"flex", alignItems:"center", gap:16, marginBottom:32 }}>
+        <button onClick={onBack} style={backBtn}>← رجوع</button>
+        <div>
+          <h2 style={{ color:"#c9a84c", margin:0, fontSize:22 }}>{gradeNames[grade]}</h2>
+          <div style={{ color:"#999", fontSize:13 }}>{students.length} طالب مسجل</div>
+        </div>
+      </div>
+
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(200px, 1fr))", gap:16 }}>
+        {modules.map(m => (
+          <button key={m.id} onClick={() => setActiveModule(m.id)} style={{
+            background:`linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))`,
+            border:`1px solid ${m.color}44`,
+            borderRadius:16, padding:"24px 16px", cursor:"pointer", textAlign:"center",
+            transition:"all 0.25s", color:"white", fontFamily:"Tajawal, sans-serif",
+          }}
+          onMouseEnter={e => {
+            e.currentTarget.style.transform = "translateY(-4px)";
+            e.currentTarget.style.background = `linear-gradient(135deg, ${m.color}22, ${m.color}11)`;
+            e.currentTarget.style.borderColor = m.color;
+            e.currentTarget.style.boxShadow = `0 8px 24px ${m.color}33`;
+          }}
+          onMouseLeave={e => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.background = "linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01))";
+            e.currentTarget.style.borderColor = `${m.color}44`;
+            e.currentTarget.style.boxShadow = "none";
+          }}>
+            <div style={{ fontSize:40, marginBottom:10 }}>{m.icon}</div>
+            <div style={{ fontWeight:700, fontSize:15, color:"#e8d5b7", marginBottom:4 }}>{m.label}</div>
+            <div style={{ fontSize:12, color:"#888" }}>{m.desc}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ==================== MAIN APP ====================
+function TeacherApp() {
+  const [selectedGrade, setSelectedGrade] = useState(null);
+  const [students] = useState(initialStudents);
+
+  const grades = [
+    { id: 1, label: "الصف الأول الثانوي", emoji: "🎓", color: "#e74c3c", sub: `${initialStudents[1].length} طلاب` },
+    { id: 2, label: "الصف الثاني الثانوي", emoji: "🎓", color: "#3498db", sub: `${initialStudents[2].length} طلاب` },
+    { id: 3, label: "الصف الثالث الثانوي", emoji: "🎓", color: "#27ae60", sub: `${initialStudents[3].length} طلاب` },
+  ];
+
+  return (
+    <div style={{
+      minHeight:"100vh", background:"#0d0d1a",
+      fontFamily:"'Tajawal', 'Cairo', sans-serif", direction:"rtl", color:"white",
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;900&family=Cairo:wght@400;600;700&display=swap');
+        * { box-sizing: border-box; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0d0d1a; }
+        ::-webkit-scrollbar-thumb { background: #c9a84c44; border-radius: 3px; }
+        @keyframes slideIn { from { transform: translateX(40px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+        @keyframes fadeUp { from { transform: translateY(20px); opacity:0; } to { transform: translateY(0); opacity:1; } }
+      `}</style>
+
+      {/* Header */}
+      <div style={{
+        background:"linear-gradient(135deg, #1a1a2e, #16213e)",
+        borderBottom:"1px solid rgba(201,168,76,0.3)",
+        padding:"18px 28px", display:"flex", alignItems:"center", gap:16,
+        boxShadow:"0 4px 24px rgba(0,0,0,0.4)"
+      }}>
+        <div style={{ fontSize:36 }}>🎓</div>
+        <div>
+          <h1 style={{ margin:0, fontSize:22, fontWeight:900, color:"#c9a84c", letterSpacing:1 }}>
+            منظومة المدرس الذكية
+          </h1>
+          <div style={{ fontSize:12, color:"#888", marginTop:2 }}>
+            إدارة الطلاب | المصاريف | الدرجات | التواصل
+          </div>
+        </div>
+        <div style={{ marginRight:"auto", fontSize:13, color:"#666" }}>
+          {getNow()}
+        </div>
+      </div>
+
+      {/* Content */}
+      {!selectedGrade ? (
+        <div style={{ padding:"48px 24px", maxWidth:700, margin:"0 auto" }}>
+          <div style={{ textAlign:"center", marginBottom:48 }}>
+            <h2 style={{ color:"#e8d5b7", fontSize:28, fontWeight:700, margin:0 }}>
+              اختر المجموعة
+            </h2>
+            <p style={{ color:"#666", marginTop:8 }}>حدد الصف الدراسي لإدارة الطلاب</p>
+          </div>
+
+          <div style={{ display:"flex", flexDirection:"column", gap:20 }}>
+            {grades.map((g, i) => (
+              <button key={g.id} onClick={() => setSelectedGrade(g.id)} style={{
+                background:`linear-gradient(135deg, ${g.color}18, ${g.color}08)`,
+                border:`2px solid ${g.color}55`,
+                borderRadius:20, padding:"28px 32px", cursor:"pointer", textAlign:"right",
+                transition:"all 0.3s", color:"white", fontFamily:"Tajawal, sans-serif",
+                display:"flex", alignItems:"center", gap:20, animation:`fadeUp 0.4s ease ${i*0.1}s both`
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = "translateX(-8px)";
+                e.currentTarget.style.borderColor = g.color;
+                e.currentTarget.style.boxShadow = `0 12px 40px ${g.color}33`;
+                e.currentTarget.style.background = `linear-gradient(135deg, ${g.color}28, ${g.color}12)`;
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = "translateX(0)";
+                e.currentTarget.style.borderColor = `${g.color}55`;
+                e.currentTarget.style.boxShadow = "none";
+                e.currentTarget.style.background = `linear-gradient(135deg, ${g.color}18, ${g.color}08)`;
+              }}>
+                <div style={{
+                  width:64, height:64, borderRadius:16, background:`${g.color}22`,
+                  border:`1px solid ${g.color}44`, display:"flex", alignItems:"center",
+                  justifyContent:"center", fontSize:32, flexShrink:0
+                }}>
+                  {g.emoji}
+                </div>
+                <div style={{ flex:1 }}>
+                  <div style={{ fontWeight:800, fontSize:20, color:"#e8d5b7" }}>{g.label}</div>
+                  <div style={{ fontSize:13, color:"#999", marginTop:4 }}>{g.sub}</div>
+                </div>
+                <div style={{ color:g.color, fontSize:24 }}>←</div>
+              </button>
+            ))}
+          </div>
+
+          <div style={{
+            marginTop:48, padding:20, background:"rgba(201,168,76,0.08)",
+            border:"1px solid rgba(201,168,76,0.2)", borderRadius:12, fontSize:13, color:"#888"
+          }}>
+            <strong style={{ color:"#c9a84c" }}>💡 ميزات التطبيق:</strong>
+            <div style={{ marginTop:8, lineHeight:2 }}>
+              ✅ تسجيل الغياب مع إشعار فوري لولي الأمر | 💰 متابعة المصاريف الشهرية |
+              📁 رفع ملفات الحصص | 💬 رسائل جماعية | 📊 درجات وتقديرات |
+              📈 إحصائيات شهرية تلقائية | 📱 تكامل واتساب وSMS
+            </div>
+          </div>
+        </div>
+      ) : (
+        <GradeDashboard
+          grade={selectedGrade}
+          students={students[selectedGrade]}
+          onBack={() => setSelectedGrade(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+// ==================== STYLES ====================
+const moduleWrap = {
+  padding: "24px", maxWidth: 900, margin: "0 auto"
+};
+const moduleHeader = {
+  display: "flex", alignItems: "center", gap: 16, marginBottom: 24
+};
+const moduleTitle = {
+  margin: 0, fontSize: 20, fontWeight: 700, color: "#e8d5b7"
+};
+const backBtn = {
+  background: "rgba(201,168,76,0.1)", border: "1px solid rgba(201,168,76,0.3)",
+  color: "#c9a84c", borderRadius: 8, padding: "8px 16px", cursor: "pointer",
+  fontSize: 14, fontFamily: "Tajawal, sans-serif"
+};
+const addBtn = {
+  background: "rgba(201,168,76,0.15)", border: "1px solid rgba(201,168,76,0.4)",
+  color: "#c9a84c", borderRadius: 8, padding: "8px 16px", cursor: "pointer",
+  fontSize: 14, fontFamily: "Tajawal, sans-serif", fontWeight: 600, whiteSpace: "nowrap"
+};
+const deleteBtn = {
+  background: "rgba(231,76,60,0.1)", border: "1px solid rgba(231,76,60,0.3)",
+  color: "#e74c3c", borderRadius: 8, padding: "6px 10px", cursor: "pointer",
+  fontSize: 14
+};
+const inputStyle = {
+  background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)",
+  color: "white", borderRadius: 8, padding: "8px 14px", fontSize: 14, outline: "none",
+  fontFamily: "Tajawal, sans-serif", direction: "rtl", flex: 1
+};
+const tableWrap = { overflowX: "auto" };
+const tableStyle = {
+  width: "100%", borderCollapse: "collapse", fontSize: 14
+};
+const th = {
+  background: "rgba(201,168,76,0.12)", color: "#c9a84c", padding: "12px 14px",
+  textAlign: "right", fontWeight: 700, borderBottom: "1px solid rgba(201,168,76,0.2)",
+  whiteSpace: "nowrap"
+};
+const td = {
+  padding: "10px 14px", borderBottom: "1px solid rgba(255,255,255,0.05)",
+  color: "#ddd", verticalAlign: "middle"
+};
+const toggleBtn = {
+  color: "white", border: "none", borderRadius: 8, padding: "6px 14px",
+  cursor: "pointer", fontWeight: 600, fontSize: 13, fontFamily: "Tajawal, sans-serif",
+  transition: "all 0.2s", whiteSpace: "nowrap"
+};
+const infoCard = {
+  background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)",
+  borderRadius: 8, padding: "8px 14px", fontSize: 13, color: "#ccc"
+};
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<TeacherApp />);
+
+  </script>
+</body>
+</html>

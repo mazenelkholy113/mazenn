@@ -1,36 +1,36 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>منظومة المدرس الذكية</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title> Eng;Mazen Elkholyمنظومة المدرس الذكية</title>
 
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      background: #0d0d1a;
-    }
-  </style>
+<style>
+body {
+  margin: 0;
+  background: #0d0d1a;
+}
+</style>
 </head>
 
 <body>
-  <div id="root"></div>
+<div id="root"></div>
 
-  <script type="text/babel">
+<script type="text/babel">
 
-import { useState, useEffect } from "react";
+const { useState, useEffect } = React;
 
 // ==================== DATA STORE ====================
 const initialStudents = {
   1: [
-    { id: 1, name: "أحمد محمد علي", parentName: "محمد علي", parentPhone: "01012345678" },
-    { id: 2, name: "سارة أحمد حسن", parentName: "أحمد حسن", parentPhone: "01098765432" },
+    { id: 1, name: "أحمد محمد ", parentName: "محمد ", parentPhone: "01012345678" },
+    { id: 2, name: "سارة أحمد د", parentName: "أحمد ", parentPhone: "01098765432" },
     { id: 3, name: "محمود إبراهيم", parentName: "إبراهيم سعد", parentPhone: "01123456789" },
-    { id: 4, name: "نور الدين طه", parentName: "طه نور", parentPhone: "01234567890" },
+    { id: 4, name: "نور الدين ", parentName: "طه نور", parentPhone: "01234567890" },
     { id: 5, name: "مريم خالد", parentName: "خالد مصطفى", parentPhone: "01567891234" },
   ],
   2: [
@@ -41,7 +41,7 @@ const initialStudents = {
   3: [
     { id: 9, name: "دينا سامي", parentName: "سامي دينا", parentPhone: "01077778888" },
     { id: 10, name: "باسم رامي", parentName: "رامي باسم", parentPhone: "01099990000" },
-    { id: 11, name: "هالة فؤاد", parentName: "فؤاد هالة", parentPhone: "01022221111" },
+    { id: 11, name: "هالة عزت", parentName: "فؤاد هالة", parentPhone: "01022221111" },
   ],
 };
 
@@ -351,7 +351,7 @@ function MessagesModule({ students, grade, onBack }) {
     "الدرس هيتأخر ربع ساعة ⏰",
     "فيه امتحان الأسبوع الجاي 📝",
     "مطلوب دفع المصاريف قبل نهاية الشهر 💰",
-    "البراجراف اللي شرحناه النهارده في الكتاب صفحة 45 📖",
+    
   ];
 
   return (
@@ -762,7 +762,9 @@ function TeacherApp() {
         <div style={{ fontSize:36 }}>🎓</div>
         <div>
           <h1 style={{ margin:0, fontSize:22, fontWeight:900, color:"#c9a84c", letterSpacing:1 }}>
-            منظومة المدرس الذكية
+             
+           By
+            Eng:Mazen Elkholy
           </h1>
           <div style={{ fontSize:12, color:"#888", marginTop:2 }}>
             إدارة الطلاب | المصاريف | الدرجات | التواصل
@@ -826,7 +828,7 @@ function TeacherApp() {
           }}>
             <strong style={{ color:"#c9a84c" }}>💡 ميزات التطبيق:</strong>
             <div style={{ marginTop:8, lineHeight:2 }}>
-              ✅ تسجيل الغياب مع إشعار فوري لولي الأمر | 💰 متابعة المصاريف الشهرية |
+             ✅ تسجيل الغياب مع إشعار فوري لولي الأمر | 💰 متابعة المصاريف الشهرية |
               📁 رفع ملفات الحصص | 💬 رسائل جماعية | 📊 درجات وتقديرات |
               📈 إحصائيات شهرية تلقائية | 📱 تكامل واتساب وSMS
             </div>
@@ -897,9 +899,11 @@ const infoCard = {
 };
 
 
-const root = ReactDOM.createRoot(document.getElementById("root"));
+const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<TeacherApp />);
 
-  </script>
+</script>
+
 </body>
 </html>
+
